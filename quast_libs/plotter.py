@@ -40,6 +40,7 @@ logarithmic_x_scale = False  # for cumulative plots only
 ####################################################################################
 import math
 import sys
+import os
 
 from quast_libs import fastaparser, qconfig, reporting
 from quast_libs.log import get_logger, get_main_logger
@@ -348,8 +349,20 @@ def frc_plot(results_dir, ref_fpath, contigs_fpaths, contigs_aligned_lengths, fe
 
 # common routine for Nx-plot and NGx-plot (and probably for others Nyx-plots in the future)
 def Nx_plot(results_dir, reduce_points, contigs_fpaths, lists_of_lengths, plot_fpath, title='Nx', reference_lengths=None):
+
+    file_name = "plot_data_%s.txt" % title
+    file_path = os.path.abspath(os.path.join(results_dir, file_name))
+    print("%s PLOT DATA: saving to %s" % (title, file_path))
+
     if can_draw_plots:
         logger.info('  Drawing ' + title + ' plot...')
+        logger.info("%s PLOT DATA: saving to %s" % (title, file_path))
+
+    with open(file_path, "w") as file:
+        file.write(">contigs_fpaths" + "\n")
+        file.write(str(contigs_fpaths) + "\n")
+        file.write(">lists_of_lengths" + "\n")
+        file.write(str(lists_of_lengths) + "\n")
 
     plots = []
     json_vals_x = []  # coordinates for Nx-like plots in HTML-report
