@@ -88,9 +88,11 @@ def run_winnowmap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max
     if qconfig.is_agb_mode:
         return run_minimap_agb(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max_threads)
 
-    sys.stderr.write(out_fpath+'\n')
+    output_directory = os.path.dirname(out_fpath)
+    sys.stderr.write(output_directory+'\n')
 
-    cmdline = ["meryl", "count", "k=19", "output", "merylDB", ref_fpath]
+    kmer_db_directory_path = os.path.join(output_directory,"merylDB")
+    cmdline = ["meryl", "count", "k=19", "output", kmer_db_directory_path, ref_fpath]
     return_code = qutils.call_subprocess(
         cmdline,
         stderr=sys.stderr,
@@ -99,10 +101,11 @@ def run_winnowmap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max
     if return_code != 0:
         return return_code
 
-    cmdline = ["meryl", "print", "greater-than", "distinct=0.9998", "merylDB"]  # > repetitive_k19.txt
+    kmer_file_path = os.path.join(output_directory, "repetitive_k19.txt")
+    cmdline = ["meryl", "print", "greater-than", "distinct=0.9998", kmer_db_directory_path]  # > repetitive_k19.txt
     return_code = qutils.call_subprocess(
         cmdline,
-        stdout=open("repetitive_k19.txt", 'w'),
+        stdout=open(kmer_file_path, 'w'),
         stderr=sys.stderr,
         indent='  ' + qutils.index_to_str(index))
 
@@ -123,7 +126,7 @@ def run_winnowmap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max
     additional_options = ['-B5', '-O4,16', '--no-long-join', '-r', str(qconfig.MAX_INDEL_LENGTH),
                           '-N', num_alignments, '-s', str(qconfig.min_alignment), '-z', '200']
 
-    cmdline = ["winnowmap", '-W', 'repetitive_k19.txt', '-c', '-x', preset] + (additional_options if not qconfig.large_genome else []) + \
+    cmdline = ["winnowmap", '-W', kmer_file_path, '-c', '-x', preset] + (additional_options if not qconfig.large_genome else []) + \
               ['--mask-level', mask_level, '--min-occ', '200', '-g', '2500', '--score-N', '2', '--cs', '-t', str(max_threads), ref_fpath, contigs_fpath]
     return_code = qutils.call_subprocess(cmdline, stdout=open(out_fpath, 'w'), stderr=sys.stderr,
                                          indent='  ' + qutils.index_to_str(index))
