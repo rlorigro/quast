@@ -7,6 +7,7 @@
 
 from __future__ import with_statement
 
+import sys
 import re
 import os
 from os.path import isfile
@@ -78,6 +79,53 @@ def run_minimap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max_t
     cmdline = [minimap_fpath(), '-c', '-x', preset] + (additional_options if not qconfig.large_genome else []) + \
               ['--mask-level', mask_level, '--min-occ', '200', '-g', '2500', '--score-N', '2', '--cs', '-t', str(max_threads), ref_fpath, contigs_fpath]
     return_code = qutils.call_subprocess(cmdline, stdout=open(out_fpath, 'w'), stderr=open(log_err_fpath, 'a'),
+                                         indent='  ' + qutils.index_to_str(index))
+
+    return return_code
+
+
+def run_winnowmap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max_threads):
+    if qconfig.is_agb_mode:
+        return run_minimap_agb(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max_threads)
+
+    sys.stderr.write(out_fpath+'\n')
+
+    cmdline = ["meryl", "count", "k=19", "output", "merylDB", ref_fpath]
+    return_code = qutils.call_subprocess(
+        cmdline,
+        stderr=sys.stderr,
+        indent='  ' + qutils.index_to_str(index))
+
+    if return_code != 0:
+        return return_code
+
+    cmdline = ["meryl", "print", "greater-than", "distinct=0.9998", "merylDB"]  # > repetitive_k19.txt
+    return_code = qutils.call_subprocess(
+        cmdline,
+        stdout=open("repetitive_k19.txt", 'w'),
+        stderr=sys.stderr,
+        indent='  ' + qutils.index_to_str(index))
+
+    if return_code != 0:
+        return return_code
+
+    if qconfig.min_IDY < 90:
+        preset = 'asm20'
+    elif qconfig.min_IDY < 95:
+        preset = 'asm10'
+    else:
+        preset = 'asm5'
+
+    # -s -- min CIGAR score, -z -- affects how often to stop alignment extension, -B -- mismatch penalty
+    # -O -- gap penalty, -r -- max gap size
+    mask_level = '1' if qconfig.is_combined_ref else '0.9'
+    num_alignments = '100' if qconfig.is_combined_ref else '50'
+    additional_options = ['-B5', '-O4,16', '--no-long-join', '-r', str(qconfig.MAX_INDEL_LENGTH),
+                          '-N', num_alignments, '-s', str(qconfig.min_alignment), '-z', '200']
+
+    cmdline = ["winnowmap", '-W', 'repetitive_k19.txt', '-c', '-x', preset] + (additional_options if not qconfig.large_genome else []) + \
+              ['--mask-level', mask_level, '--min-occ', '200', '-g', '2500', '--score-N', '2', '--cs', '-t', str(max_threads), ref_fpath, contigs_fpath]
+    return_code = qutils.call_subprocess(cmdline, stdout=open(out_fpath, 'w'), stderr=sys.stderr,
                                          indent='  ' + qutils.index_to_str(index))
 
     return return_code
@@ -231,7 +279,7 @@ def align_contigs(output_fpath, out_basename, ref_fpath, contigs_fpath, old_cont
     logger.info('  ' + qutils.index_to_str(index) + 'Aligning contigs to the reference')
 
     tmp_output_fpath = output_fpath + '_tmp'
-    exit_code = run_minimap(tmp_output_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, threads)
+    exit_code = run_winnowmap(tmp_output_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, threads)
     if exit_code != 0:
         return AlignerStatus.ERROR
 
