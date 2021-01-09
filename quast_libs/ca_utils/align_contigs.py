@@ -127,7 +127,7 @@ def run_winnowmap(out_fpath, ref_fpath, contigs_fpath, log_err_fpath, index, max
                           '-N', num_alignments, '-s', str(qconfig.min_alignment), '-z', '200']
 
     cmdline = ["winnowmap", '-W', kmer_file_path, '-c', '-x', preset] + (additional_options if not qconfig.large_genome else []) + \
-              ['--mask-level', mask_level, '--min-occ', '200', '-g', '2500', '--score-N', '2', '--cs', '-t', str(max_threads), ref_fpath, contigs_fpath]
+              ['--mask-level', mask_level, '--score-N', '2', '--cs', '-t', str(max_threads), ref_fpath, contigs_fpath]
     return_code = qutils.call_subprocess(cmdline, stdout=open(out_fpath, 'w'), stderr=sys.stderr,
                                          indent='  ' + qutils.index_to_str(index))
 
